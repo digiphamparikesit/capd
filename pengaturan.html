@@ -24,33 +24,31 @@
         <label class="block text-sm font-medium text-slate-700 mb-1">Token FONTE</label>
         <input type="text" id="fonnte_token"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" />
-        <p class="text-xs text-slate-500 mt-1">Ambil dari dashboard FONTE → Device → Token</p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">WA Logistik (penerima notif resep)</label>
-          <input type="text" id="wa_logistik" placeholder="08xxxxxxxxxx"
+          <label class="block text-sm font-medium text-slate-700 mb-1">WA Farmasi Rajal</label>
+          <input type="text" id="wa_rajal" placeholder="08xxxxxxxxxx"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">WA Farmasi (penerima reminder)</label>
-          <input type="text" id="wa_farmasi" placeholder="08xxxxxxxxxx"
+          <label class="block text-sm font-medium text-slate-700 mb-1">WA Gudang Logistik</label>
+          <input type="text" id="wa_logistik" placeholder="08xxxxxxxxxx"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
         </div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Resep Baru</label>
-        <textarea id="template_resep_baru" rows="7"
+        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Resep ke Rajal</label>
+        <textarea id="template_resep_rajal" rows="7"
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"></textarea>
-        <p class="text-xs text-slate-500 mt-1">
-          Variabel: <code class="bg-slate-100 px-1 rounded">{nama}</code>
-          <code class="bg-slate-100 px-1 rounded">{no_rm}</code>
-          <code class="bg-slate-100 px-1 rounded">{tgl_kontrol}</code>
-          <code class="bg-slate-100 px-1 rounded">{detail_resep}</code>
-          <code class="bg-slate-100 px-1 rounded">{distributor}</code>
-        </p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Resep ke Logistik</label>
+        <textarea id="template_resep_logistik" rows="7"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"></textarea>
       </div>
 
       <div>
@@ -60,8 +58,14 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Follow-up H+1</label>
-        <textarea id="template_h1_followup" rows="5"
+        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — H+1 (ke Admin)</label>
+        <textarea id="template_h1_followup_admin" rows="5"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — H+3 (Follow-up)</label>
+        <textarea id="template_h3_followup" rows="5"
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"></textarea>
       </div>
 
@@ -79,13 +83,18 @@
       </div>
     </form>
 
-    <!-- Info -->
     <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
       <strong>ℹ️ Info:</strong>
       <ul class="list-disc ml-5 mt-2 space-y-1">
-        <li>Tombol <b>Tes Kirim WA</b> akan mengirim pesan uji ke <b>WA Logistik</b>.</li>
-        <li>Notif H-1 & H+1 otomatis berjalan via cron (STEP 3, belum di-setup).</li>
-        <li>Kalau WA tidak sampai, cek sisa kuota FONTE Anda di dashboard FONTE.</li>
+        <li><b>WA Rajal</b>: penerima info resep pasien (pengingat)</li>
+        <li><b>WA Logistik</b>: penerima info resep baru (buat SP)</li>
+        <li>Variabel template: <code class="bg-white px-1 rounded">{nama}</code>
+          <code class="bg-white px-1 rounded">{no_rm}</code>
+          <code class="bg-white px-1 rounded">{tgl_kontrol}</code>
+          <code class="bg-white px-1 rounded">{tgl_kontrol_berikutnya}</code>
+          <code class="bg-white px-1 rounded">{detail_resep}</code>
+          <code class="bg-white px-1 rounded">{distributor}</code>
+        </li>
       </ul>
     </div>
 
@@ -93,8 +102,12 @@
 
   <script src="config.js"></script>
   <script>
-    const KEYS = ['fonnte_token','wa_logistik','wa_farmasi',
-                  'template_resep_baru','template_h1_reminder','template_h1_followup'];
+    const KEYS = [
+      'fonnte_token', 'wa_rajal', 'wa_logistik',
+      'template_resep_rajal', 'template_resep_logistik',
+      'template_h1_reminder', 'template_h1_followup_admin',
+      'template_h3_followup'
+    ];
 
     function showMsg(text, type = 'info') {
       const el = document.getElementById('msg');
@@ -148,12 +161,8 @@
       else        showMsg('Gagal: ' + JSON.stringify(res.fonnte || res.error), 'error');
     });
 
-    (async () => {
-      const session = await requireAuth();
-      if (!session) return;
-      document.getElementById('nav').innerHTML = renderNav('pengaturan.html');
-      await loadSettings();
-    })();
+    document.getElementById('nav').innerHTML = renderNav('pengaturan.html');
+    loadSettings();
   </script>
 </body>
 </html>
