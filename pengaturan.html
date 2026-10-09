@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pengaturan — Notifikasi Pasien CAPD</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+  <div id="nav"></div>
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-slate-800">Pengaturan</h1>
+      <p class="text-sm text-slate-500">Konfigurasi nomor WA, token FONTE, dan template pesan</p>
+    </div>
+
+    <form id="settingsForm" class="bg-white rounded-xl shadow-sm p-6 space-y-5">
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Token FONTE</label>
+        <input type="text" id="fonnte_token"
+               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" />
+        <p class="text-xs text-slate-500 mt-1">Ambil dari dashboard FONTE → Device → Token</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">WA Logistik (penerima notif resep)</label>
+          <input type="text" id="wa_logistik" placeholder="08xxxxxxxxxx"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">WA Farmasi (penerima reminder)</label>
+          <input type="text" id="wa_farmasi" placeholder="08xxxxxxxxxx"
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Resep Baru</label>
+        <textarea id="template_resep_baru" rows="7"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"></textarea>
+        <p class="text-xs text-slate-500 mt-1">
+          Variabel: <code class="bg-slate-100 px-1 rounded">{nama}</code>
+          <code class="bg-slate-100 px-1 rounded">{no_rm}</code>
+          <code class="bg-slate-100 px-1 rounded">{tgl_kontrol}</code>
+          <code class="bg-slate-100 px-1 rounded">{detail_resep}</code>
+          <code class="bg-slate-100 px-1 rounded">{distributor}</code>
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Reminder H-1</label>
+        <textarea id="template_h1_reminder" rows="5"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Follow-up H+1</label>
+        <textarea id="template_h1_followup" rows="5"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs"></textarea>
+      </div>
+
+      <div id="msg" class="hidden text-sm rounded-lg p-3"></div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="submit"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition">
+          💾 Simpan Pengaturan
+        </button>
+        <button type="button" id="btnTestWA"
+                class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-lg transition">
+          📱 Tes Kirim WA
+        </button>
+      </div>
+    </form>
+
+    <!-- Info -->
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+      <strong>ℹ️ Info:</strong>
+      <ul class="list-disc ml-5 mt-2 space-y-1">
+        <li>Tombol <b>Tes Kirim WA</b> akan mengirim pesan uji ke <b>WA Logistik</b>.</li>
+        <li>Notif H-1 & H+1 otomatis berjalan via cron (STEP 3, belum di-setup).</li>
+        <li>Kalau WA tidak sampai, cek sisa kuota FONTE Anda di dashboard FONTE.</li>
+      </ul>
+    </div>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    const KEYS = ['fonnte_token','wa_logistik','wa_farmasi',
+                  'template_resep_baru','template_h1_reminder','template_h1_followup'];
+
+    function showMsg(text, type = 'info') {
+      const el = document.getElementById('msg');
+      el.className = 'text-sm rounded-lg p-3 ' +
+        (type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700');
+      el.textContent = text;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 4000);
+    }
+
+    async function loadSettings() {
+      const { data } = await sb.from('settings').select('key, value').in('key', KEYS);
+      const map = Object.fromEntries((data || []).map(r => [r.key, r.value]));
+      KEYS.forEach(k => {
+        const el = document.getElementById(k);
+        if (el) el.value = map[k] || '';
+      });
+    }
+
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const updates = KEYS.map(k => ({
+        key: k,
+        value: document.getElementById(k).value,
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error } = await sb.from('settings').upsert(updates, { onConflict: 'key' });
+      if (error) { showMsg('Gagal simpan: ' + error.message, 'error'); return; }
+      showMsg('Pengaturan tersimpan ✓');
+    });
+
+    document.getElementById('btnTestWA').addEventListener('click', async () => {
+      const target = document.getElementById('wa_logistik').value.trim();
+      if (!target) { showMsg('Isi dulu WA Logistik', 'error'); return; }
+
+      const btn = document.getElementById('btnTestWA');
+      btn.disabled = true;
+      btn.textContent = 'Mengirim...';
+
+      const res = await sendWA({
+        tipe: 'manual',
+        target_wa: target,
+        pesan: '✅ Tes kirim WA dari aplikasi Notifikasi Pasien CAPD.\n\nJika Anda menerima pesan ini, berarti konfigurasi sudah benar.'
+      });
+
+      btn.disabled = false;
+      btn.textContent = '📱 Tes Kirim WA';
+
+      if (res.ok) showMsg('WA tes terkirim ✓ Cek HP Anda.');
+      else        showMsg('Gagal: ' + JSON.stringify(res.fonnte || res.error), 'error');
+    });
+
+    (async () => {
+      const session = await requireAuth();
+      if (!session) return;
+      document.getElementById('nav').innerHTML = renderNav('pengaturan.html');
+      await loadSettings();
+    })();
+  </script>
+</body>
+</html>
