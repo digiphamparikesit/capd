@@ -3,7 +3,7 @@
 // =============================================================
 
 const SUPABASE_URL      = 'https://jopljietaofydczmchzm.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcGxqaWV0YW9meWRjem1jaHptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAwODE5NDMsImV4cCI6MjA3NTY1Nzk0M30.CVPL5ACchcRaHYogEAE44My2XnToLqd9-LUJDFHqb8E';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcGxqaWV0YW9meWRjem1jaHptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0ODE5MDksImV4cCI6MjEwNzA1NzkwOX0.VCpL5ACchcRaHYogEAE44My2XWToL4NQAe3gB4E9lWs';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const EDGE_SEND_WA = SUPABASE_URL + '/functions/v1/send-wa';
