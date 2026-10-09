@@ -4,7 +4,7 @@
 // (bisa dilihat di Supabase → Settings → API)
 // =============================================================
 
-const SUPABASE_URL      = 'https://jopljietaofydczmchzm.supabase.co/rest/v1/';
+const SUPABASE_URL      = 'https://jopljietaofydczmchzm.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvcGxqaWV0YW9meWRjem1jaHptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0ODE5MDksImV4cCI6MjEwNzA1NzkwOX0.VCpL5ACchcRaHYogEAE44My2XWToL4NQAe3gB4E9lWs';
 
 // -------------------------------------------------------------
