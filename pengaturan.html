@@ -26,18 +26,23 @@
                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" />
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">WA Farmasi Rajal</label>
-          <input type="text" id="wa_rajal" placeholder="08xxxxxxxxxx"
-                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1">WA Gudang Logistik</label>
-          <input type="text" id="wa_logistik" placeholder="08xxxxxxxxxx"
-                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
-        </div>
-      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  <div>
+    <label class="block text-sm font-medium text-slate-700 mb-1">WA Farmasi Rajal</label>
+    <input type="text" id="wa_rajal" placeholder="08xxxxxxxxxx"
+           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+  </div>
+  <div>
+    <label class="block text-sm font-medium text-slate-700 mb-1">WA Gudang Logistik</label>
+    <input type="text" id="wa_logistik" placeholder="08xxxxxxxxxx"
+           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+  </div>
+  <div>
+    <label class="block text-sm font-medium text-slate-700 mb-1">WA Admin</label>
+    <input type="text" id="wa_admin" placeholder="08xxxxxxxxxx"
+           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+  </div>
+</div>
 
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Template WA — Resep ke Rajal</label>
@@ -103,11 +108,11 @@
   <script src="config.js"></script>
   <script>
     const KEYS = [
-      'fonnte_token', 'wa_rajal', 'wa_logistik',
-      'template_resep_rajal', 'template_resep_logistik',
-      'template_h1_reminder', 'template_h1_followup_admin',
-      'template_h3_followup'
-    ];
+  'fonnte_token', 'wa_rajal', 'wa_logistik', 'wa_admin',
+  'template_resep_rajal', 'template_resep_logistik',
+  'template_h1_reminder', 'template_h1_followup_admin',
+  'template_h3_followup'
+];
 
     function showMsg(text, type = 'info') {
       const el = document.getElementById('msg');
