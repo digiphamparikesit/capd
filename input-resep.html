@@ -21,7 +21,6 @@
 
     <form id="resepForm" class="bg-white rounded-xl shadow-sm p-6 space-y-5">
 
-      <!-- Pasien -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Pasien <span class="text-red-500">*</span></label>
         <select id="patient_id" required
@@ -30,21 +29,21 @@
         </select>
       </div>
 
-      <!-- Tgl kontrol hari ini -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Tgl Kontrol Hari Ini <span class="text-red-500">*</span></label>
           <input type="date" id="tgl_kontrol" required
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+          <p class="text-xs text-slate-500 mt-1">Ubah kalau input telat dari tgl pasien datang</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Tgl Kontrol Berikutnya <span class="text-red-500">*</span></label>
           <input type="date" id="tgl_kontrol_berikutnya" required
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+          <p class="text-xs text-slate-500 mt-1">Auto +30 hari, bisa diubah</p>
         </div>
       </div>
 
-      <!-- Detail resep -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Detail Resep <span class="text-red-500">*</span></label>
         <textarea id="detail_resep" required rows="5"
@@ -53,10 +52,8 @@
 - Dianeal 1.5% x 30 bag
 - Cefazolin 500 mg"
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"></textarea>
-        <p class="text-xs text-slate-500 mt-1">Tulis satu obat per baris (boleh pakai tanda "-" atau tanpa)</p>
       </div>
 
-      <!-- Distributor -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Distributor <span class="text-red-500">*</span></label>
         <input type="text" id="distributor" required
@@ -64,31 +61,27 @@
                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
       </div>
 
-      <!-- Catatan -->
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">Catatan (opsional)</label>
         <input type="text" id="catatan"
-               placeholder="Misal: pasien minta antar siang"
                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
       </div>
 
-      <!-- Preview WA -->
-      <div id="waPreview" class="hidden bg-green-50 border border-green-200 rounded-lg p-4">
-        <div class="text-xs font-semibold text-green-800 mb-2">📱 Preview WA ke Logistik:</div>
-        <div id="waPreviewText" class="text-sm text-green-900 whitespace-pre-wrap font-mono"></div>
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+        <strong>ℹ️ Setelah klik Simpan:</strong>
+        <ul class="list-disc ml-5 mt-1 space-y-1">
+          <li>WA otomatis dikirim ke <b>Farmasi Rajal</b> (info resep)</li>
+          <li>WA otomatis dikirim ke <b>Gudang Logistik</b> (buat SP)</li>
+          <li>Reminder H-1 dijadwalkan otomatis</li>
+        </ul>
       </div>
 
       <div id="msg" class="hidden text-sm rounded-lg p-3"></div>
 
-      <!-- Buttons -->
-      <div class="flex gap-3 pt-2">
-        <button type="button" id="btnSaveOnly"
-                class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 rounded-lg transition">
-          Simpan Saja
-        </button>
-        <button type="submit" id="btnSaveWA"
-                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition">
-          💾 Simpan & Kirim WA Logistik
+      <div class="pt-2">
+        <button type="submit" id="btnSave"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition">
+          💾 Simpan & Kirim WA
         </button>
       </div>
     </form>
@@ -108,7 +101,20 @@
                              'bg-blue-50 text-blue-700');
       el.textContent = text;
       el.classList.remove('hidden');
-      setTimeout(() => el.classList.add('hidden'), 5000);
+    }
+
+    // ---------------------------------------------------------
+    // Auto-hitung tgl berikutnya
+    // ---------------------------------------------------------
+    const INTERVAL_HARI = 30;
+
+    function recalcNext() {
+      const tgl = document.getElementById('tgl_kontrol').value;
+      if (!tgl) return;
+      const next = new Date(tgl + 'T00:00:00');
+      next.setDate(next.getDate() + INTERVAL_HARI);
+      document.getElementById('tgl_kontrol_berikutnya').value =
+        next.toISOString().slice(0, 10);
     }
 
     // ---------------------------------------------------------
@@ -117,7 +123,8 @@
     async function loadData() {
       const [setRes, patRes] = await Promise.all([
         sb.from('settings').select('key, value'),
-        sb.from('patients').select('id, nama, no_rm, no_wa, distributor_default').eq('aktif', true).order('nama')
+        sb.from('patients').select('id, nama, no_rm, no_wa, distributor_default')
+          .eq('aktif', true).order('nama')
       ]);
 
       SETTINGS = Object.fromEntries((setRes.data || []).map(r => [r.key, r.value]));
@@ -132,7 +139,6 @@
         sel.appendChild(opt);
       });
 
-      // Preselect dari query string ?patient_id=...
       const urlParams = new URLSearchParams(window.location.search);
       const preId = urlParams.get('patient_id');
       if (preId && PATIENTS[preId]) {
@@ -141,9 +147,6 @@
       }
     }
 
-    // ---------------------------------------------------------
-    // Auto-isi distributor + preview WA
-    // ---------------------------------------------------------
     function onPatientChange() {
       const id = document.getElementById('patient_id').value;
       if (!id) return;
@@ -151,29 +154,17 @@
       if (p?.distributor_default && !document.getElementById('distributor').value) {
         document.getElementById('distributor').value = p.distributor_default;
       }
-      updatePreview();
-    }
-
-    function updatePreview() {
-      const id = document.getElementById('patient_id').value;
-      if (!id) { document.getElementById('waPreview').classList.add('hidden'); return; }
-      const p = PATIENTS[id];
-      const tpl = SETTINGS.template_resep_baru || '';
-      const data = {
-        nama: p.nama,
-        no_rm: p.no_rm,
-        tgl_kontrol: fmtDate(document.getElementById('tgl_kontrol').value),
-        detail_resep: document.getElementById('detail_resep').value || '-',
-        distributor: document.getElementById('distributor').value || '-',
-      };
-      document.getElementById('waPreviewText').textContent = renderTemplate(tpl, data);
-      document.getElementById('waPreview').classList.remove('hidden');
     }
 
     // ---------------------------------------------------------
     // Submit
     // ---------------------------------------------------------
-    async function doSave(kirimWA) {
+    document.getElementById('resepForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnSave');
+      btn.disabled = true;
+      btn.textContent = 'Memproses...';
+
       const patient_id = document.getElementById('patient_id').value;
       const tgl_kontrol = document.getElementById('tgl_kontrol').value;
       const tgl_kontrol_berikutnya = document.getElementById('tgl_kontrol_berikutnya').value;
@@ -183,93 +174,102 @@
 
       if (!patient_id || !tgl_kontrol || !tgl_kontrol_berikutnya || !detail_resep || !distributor) {
         showMsg('Mohon lengkapi field bertanda *', 'error');
+        btn.disabled = false; btn.textContent = '💾 Simpan & Kirim WA';
         return;
       }
 
-      // 1. Insert ke prescriptions
+      // 1. Insert resep
       const { data: inserted, error } = await sb.from('prescriptions').insert({
         patient_id, tgl_kontrol, tgl_kontrol_berikutnya,
         detail_resep, distributor, catatan: catatan || null,
-        status_sp: 'belum_sp',
         notif_terkirim: false
       }).select().single();
 
       if (error) {
         showMsg('Gagal menyimpan: ' + error.message, 'error');
+        btn.disabled = false; btn.textContent = '💾 Simpan & Kirim WA';
         return;
       }
 
-      showMsg('Resep berhasil disimpan ✓', 'success');
+      // 2. Siapkan data untuk template
+      const p = PATIENTS[patient_id];
+      const dataTpl = {
+        nama: p.nama,
+        no_rm: p.no_rm,
+        tgl_kontrol: fmtDate(tgl_kontrol),
+        tgl_kontrol_berikutnya: fmtDate(tgl_kontrol_berikutnya),
+        detail_resep,
+        distributor
+      };
 
-      // 2. Kirim WA (opsional)
-      if (kirimWA) {
-        const p = PATIENTS[patient_id];
-        const tpl = SETTINGS.template_resep_baru || '';
-        const pesan = renderTemplate(tpl, {
-          nama: p.nama,
-          no_rm: p.no_rm,
-          tgl_kontrol: fmtDate(tgl_kontrol),
-          detail_resep,
-          distributor,
-        });
-
-        const target = SETTINGS.wa_logistik;
-        if (!target) {
-          showMsg('Resep tersimpan, tapi nomor WA logistik belum di-set di Pengaturan', 'error');
-          return;
-        }
-
-        const res = await sendWA({
+      // 3. Kirim WA ke Rajal
+      const pesanRajal = renderTemplate(SETTINGS.template_resep_rajal, dataTpl);
+      const targetRajal = SETTINGS.wa_rajal;
+      let hasilRajal = { ok: false, error: 'wa_rajal belum diisi' };
+      if (targetRajal) {
+        hasilRajal = await sendWA({
           prescription_id: inserted.id,
           tipe: 'resep_baru',
-          target_wa: target,
-          pesan
+          target_wa: targetRajal,
+          pesan: pesanRajal
         });
-
-        if (res.ok) {
-          await sb.from('prescriptions').update({
-            notif_terkirim: true,
-            notif_sent_at: new Date().toISOString()
-          }).eq('id', inserted.id);
-          showMsg('Resep tersimpan & WA terkirim ke logistik ✓', 'success');
-        } else {
-          showMsg('Resep tersimpan, tapi WA gagal: ' + JSON.stringify(res.fonnte || res.error), 'error');
-        }
       }
 
-      setTimeout(() => window.location.href = 'dashboard.html', 1200);
-    }
+      // 4. Kirim WA ke Logistik
+      const pesanLogistik = renderTemplate(SETTINGS.template_resep_logistik, dataTpl);
+      const targetLogistik = SETTINGS.wa_logistik;
+      let hasilLogistik = { ok: false, error: 'wa_logistik belum diisi' };
+      if (targetLogistik) {
+        hasilLogistik = await sendWA({
+          prescription_id: inserted.id,
+          tipe: 'resep_baru',
+          target_wa: targetLogistik,
+          pesan: pesanLogistik
+        });
+      }
 
-    document.getElementById('resepForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-      doSave(true);
+      // 5. Update status notif
+      const suksesTotal = hasilRajal.ok && hasilLogistik.ok;
+      if (suksesTotal) {
+        await sb.from('prescriptions').update({
+          notif_terkirim: true,
+          notif_sent_at: new Date().toISOString()
+        }).eq('id', inserted.id);
+      }
+
+      // 6. Buat entry no_show_log untuk reminder H+1 & H+3
+      await sb.from('no_show_log').insert({
+        prescription_id: inserted.id,
+        patient_id: patient_id,
+        tgl_kontrol_target: tgl_kontrol_berikutnya,
+        status: 'pending'
+      });
+
+      // 7. Info hasil
+      if (suksesTotal) {
+        showMsg('✓ Resep tersimpan & WA terkirim ke Rajal + Logistik', 'success');
+      } else {
+        showMsg('Resep tersimpan. WA Rajal: ' + (hasilRajal.ok ? '✓' : '✗ ') +
+                ', WA Logistik: ' + (hasilLogistik.ok ? '✓' : '✗ ') +
+                '. Cek Pengaturan kalau nomor belum diisi.', 'error');
+      }
+
+      setTimeout(() => window.location.href = 'dashboard.html', 2000);
     });
 
-    document.getElementById('btnSaveOnly').addEventListener('click', () => doSave(false));
-
-    // ---------------------------------------------------------
-    // Bind events
-    // ---------------------------------------------------------
+    // Bind
+    document.getElementById('tgl_kontrol').addEventListener('change', recalcNext);
     document.getElementById('patient_id').addEventListener('change', onPatientChange);
-    ['tgl_kontrol','tgl_kontrol_berikutnya','detail_resep','distributor'].forEach(id => {
-      document.getElementById(id).addEventListener('input', updatePreview);
-    });
 
-    // ---------------------------------------------------------
     // Init
-    // ---------------------------------------------------------
-    (async () => {
-      const session = await requireAuth();
-      if (!session) return;
-      document.getElementById('nav').innerHTML = renderNav('input-resep.html');
-      await loadData();
+    document.getElementById('nav').innerHTML = renderNav('input-resep.html');
 
-      // Default tanggal: hari ini untuk kontrol, +30 hari untuk berikutnya
-      const today = new Date().toISOString().slice(0,10);
-      document.getElementById('tgl_kontrol').value = today;
-      const next = new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10);
-      document.getElementById('tgl_kontrol_berikutnya').value = next;
-    })();
+    // Default tgl = hari ini & +30
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById('tgl_kontrol').value = today;
+    recalcNext();
+
+    loadData();
   </script>
 </body>
 </html>
