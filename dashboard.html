@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Notifikasi Pasien CAPD</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+  <div id="nav"></div>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <p class="text-sm text-slate-500">Ringkasan pasien CAPD & status pengadaan obat</p>
+      </div>
+      <a href="input-resep.html"
+         class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg shadow-sm transition">
+        + Input Resep Baru
+      </a>
+    </div>
+
+    <!-- Kartu Pasien -->
+    <div id="patientCards" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"></div>
+
+    <!-- Riwayat Resep -->
+    <div class="bg-white rounded-xl shadow-sm">
+      <div class="px-5 py-4 border-b flex items-center justify-between">
+        <h2 class="font-bold text-slate-800">📋 Riwayat Resep Terakhir</h2>
+        <button onclick="loadAll()"
+                class="text-sm text-blue-600 hover:underline">Refresh</button>
+      </div>
+      <div id="historyList" class="divide-y"></div>
+    </div>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    let SETTINGS = {};
+
+    async function loadSettings() {
+      const { data } = await sb.from('settings').select('key, value');
+      SETTINGS = Object.fromEntries((data || []).map(r => [r.key, r.value]));
+    }
+
+    // ---------------------------------------------------------
+    // Render kartu per pasien (pakai view v_dashboard)
+    // ---------------------------------------------------------
+    async function loadPatients() {
+      const { data, error } = await sb
+        .from('v_dashboard')
+        .select('*')
+        .order('nama');
+
+      if (error) {
+        console.error(error);
+        document.getElementById('patientCards').innerHTML =
+          `<div class="col-span-full text-red-600 text-sm">Gagal memuat: ${esc(error.message)}</div>`;
+        return;
+      }
+
+      const container = document.getElementById('patientCards');
+
+      if (!data || data.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-slate-500 text-sm">Belum ada pasien.</div>`;
+        return;
+      }
+
+      container.innerHTML = data.map(p => {
+        const dLeft = daysDiff(p.tgl_kontrol_berikutnya);
+        let countdown = '-';
+        let countdownCls = 'text-slate-500';
+        if (dLeft !== null) {
+          if (dLeft < 0)      { countdown = `Lewat ${Math.abs(dLeft)} hari`; countdownCls = 'text-red-600 font-semibold'; }
+          else if (dLeft === 0) { countdown = 'Hari ini';  countdownCls = 'text-orange-600 font-semibold'; }
+          else if (dLeft <= 3)  { countdown = `${dLeft} hari lagi`; countdownCls = 'text-orange-600 font-semibold'; }
+          else                  { countdown = `${dLeft} hari lagi`; countdownCls = 'text-slate-500'; }
+        }
+
+        return `
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-lg">${esc(p.nama)}</h3>
+              <p class="text-xs text-slate-500">RM: ${esc(p.no_rm)} • WA: ${esc(p.no_wa || '-')}</p>
+            </div>
+            ${p.status_sp ? statusBadge(p.status_sp) : ''}
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+            <div class="bg-slate-50 rounded-lg p-3">
+              <div class="text-xs text-slate-500 mb-1">Kontrol terakhir</div>
+              <div class="font-medium text-slate-700">${fmtDate(p.tgl_kontrol)}</div>
+            </div>
+            <div class="bg-blue-50 rounded-lg p-3">
+              <div class="text-xs text-blue-600 mb-1">Kontrol berikutnya</div>
+              <div class="font-medium text-blue-800">${fmtDate(p.tgl_kontrol_berikutnya)}</div>
+              <div class="text-xs ${countdownCls} mt-1">${countdown}</div>
+            </div>
+          </div>
+
+          <div class="text-xs text-slate-500 mb-3">
+            Distributor: <span class="font-medium text-slate-700">${esc(p.distributor || p.distributor_default || '-')}</span>
+            ${p.notif_terkirim
+              ? '<span class="ml-2 text-green-600">✓ Notif terkirim</span>'
+              : '<span class="ml-2 text-red-600">✗ Notif belum terkirim</span>'}
+          </div>
+
+          <div class="flex gap-2">
+            <a href="input-resep.html?patient_id=${p.patient_id}"
+               class="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded-lg">
+              + Input Resep
+            </a>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ---------------------------------------------------------
+    // Riwayat resep (10 terakhir)
+    // ---------------------------------------------------------
+    async function loadHistory() {
+      const { data, error } = await sb
+        .from('prescriptions')
+        .select('*, patients(nama, no_rm)')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const container = document.getElementById('historyList');
+
+      if (error) {
+        container.innerHTML = `<div class="p-4 text-red-600 text-sm">${esc(error.message)}</div>`;
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Belum ada resep.</div>`;
+        return;
+      }
+
+      container.innerHTML = data.map(r => `
+        <div class="p-4 hover:bg-slate-50">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <div class="font-medium text-slate-800">${esc(r.patients?.nama || '-')}
+                <span class="text-xs text-slate-500 font-normal">• RM ${esc(r.patients?.no_rm || '-')}</span>
+              </div>
+              <div class="text-xs text-slate-500">Kontrol: ${fmtDate(r.tgl_kontrol)} → berikutnya: ${fmtDate(r.tgl_kontrol_berikutnya)}</div>
+            </div>
+            ${statusBadge(r.status_sp)}
+          </div>
+
+          <div class="text-sm text-slate-600 bg-slate-50 rounded p-2 mb-2 whitespace-pre-wrap">${esc(r.detail_resep)}</div>
+
+          <div class="flex items-center justify-between gap-2 text-xs">
+            <div class="text-slate-500">
+              Distributor: <span class="font-medium text-slate-700">${esc(r.distributor)}</span>
+            </div>
+            <select onchange="updateStatus('${r.id}', this.value)"
+                    class="border border-slate-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="belum_sp"  ${r.status_sp === 'belum_sp'  ? 'selected' : ''}>Belum SP</option>
+              <option value="sp_dibuat" ${r.status_sp === 'sp_dibuat' ? 'selected' : ''}>SP Dibuat</option>
+              <option value="dikirim"   ${r.status_sp === 'dikirim'   ? 'selected' : ''}>Dikirim</option>
+              <option value="diterima"  ${r.status_sp === 'diterima'  ? 'selected' : ''}>Diterima</option>
+            </select>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function updateStatus(id, status) {
+      const { error } = await sb.from('prescriptions').update({ status_sp: status }).eq('id', id);
+      if (error) {
+        alert('Gagal update: ' + error.message);
+        return;
+      }
+      loadAll();
+    }
+
+    async function loadAll() {
+      await Promise.all([loadPatients(), loadHistory()]);
+    }
+
+    (async () => {
+      const session = await requireAuth();
+      if (!session) return;
+      document.getElementById('nav').innerHTML = renderNav('dashboard.html');
+      await loadSettings();
+      await loadAll();
+    })();
+  </script>
+</body>
+</html>
