@@ -78,3 +78,39 @@ function renderNav(active) {
       </div>
     </nav>`;
 }
+// -------------------------------------------------------------
+// Helper: Reset reminder setelah edit resep
+// - Hapus notif H-1/H+1/H+3 lama yang belum terkirim
+// - Reset no_show_log
+// - Buat ulang no_show_log untuk siklus baru
+// -------------------------------------------------------------
+async function resetReminderForPrescription(prescriptionId, patientId, tglKontrolBerikutnya) {
+  // 1. Hapus no_show_log lama untuk resep ini
+  await sb.from('no_show_log').delete().eq('prescription_id', prescriptionId);
+
+  // 2. Buat no_show_log baru dengan tgl target baru
+  await sb.from('no_show_log').insert({
+    prescription_id: prescriptionId,
+    patient_id: patientId,
+    tgl_kontrol_target: tglKontrolBerikutnya,
+    status: 'pending'
+  });
+
+  // 3. Hapus notif log lama yang belum pernah sukses (opsional, biar rapi)
+  //    Tapi biarkan yang sudah terkirim sebagai history
+}
+
+// -------------------------------------------------------------
+// Helper: Hapus resep beserta data terkait
+// -------------------------------------------------------------
+async function deletePrescription(prescriptionId) {
+  // Hapus no_show_log
+  await sb.from('no_show_log').delete().eq('prescription_id', prescriptionId);
+
+  // Hapus notif log
+  await sb.from('notifications_log').delete().eq('prescription_id', prescriptionId);
+
+  // Hapus resep
+  const { error } = await sb.from('prescriptions').delete().eq('id', prescriptionId);
+  return error;
+}
