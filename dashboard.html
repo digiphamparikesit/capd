@@ -108,48 +108,73 @@
     // Riwayat resep (10 terakhir)
     // ---------------------------------------------------------
     async function loadHistory() {
-      const { data, error } = await sb
-        .from('prescriptions')
-        .select('*, patients(nama, no_rm)')
-        .order('created_at', { ascending: false })
-        .limit(10);
+  const { data, error } = await sb
+    .from('prescriptions')
+    .select('*, patients(nama, no_rm)')
+    .order('created_at', { ascending: false })
+    .limit(10);
 
-      const container = document.getElementById('historyList');
+  const container = document.getElementById('historyList');
 
-      if (error) {
-        container.innerHTML = `<div class="p-4 text-red-600 text-sm">${esc(error.message)}</div>`;
-        return;
-      }
+  if (error) {
+    container.innerHTML = `<div class="p-4 text-red-600 text-sm">${esc(error.message)}</div>`;
+    return;
+  }
 
-      if (!data || data.length === 0) {
-        container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Belum ada resep.</div>`;
-        return;
-      }
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Belum ada resep.</div>`;
+    return;
+  }
 
-      container.innerHTML = data.map(r => `
-        <div class="p-4 hover:bg-slate-50">
-          <div class="flex items-start justify-between gap-3 mb-2">
-            <div>
-              <div class="font-medium text-slate-800">${esc(r.patients?.nama || '-')}
-                <span class="text-xs text-slate-500 font-normal">• RM ${esc(r.patients?.no_rm || '-')}</span>
-              </div>
-              <div class="text-xs text-slate-500">
-                Kontrol: ${fmtDate(r.tgl_kontrol)} → berikutnya: ${fmtDate(r.tgl_kontrol_berikutnya)}
-              </div>
-            </div>
-            ${r.notif_terkirim
-              ? '<span class="text-xs text-green-600">✓ WA terkirim</span>'
-              : '<span class="text-xs text-slate-400">— belum WA</span>'}
+  container.innerHTML = data.map(r => `
+    <div class="p-4 hover:bg-slate-50">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div>
+          <div class="font-medium text-slate-800">${esc(r.patients?.nama || '-')}
+            <span class="text-xs text-slate-500 font-normal">• RM ${esc(r.patients?.no_rm || '-')}</span>
           </div>
-
-          <div class="text-sm text-slate-600 bg-slate-50 rounded p-2 mb-2 whitespace-pre-wrap">${esc(r.detail_resep)}</div>
-
           <div class="text-xs text-slate-500">
-            Distributor: <span class="font-medium text-slate-700">${esc(r.distributor)}</span>
+            Kontrol: ${fmtDate(r.tgl_kontrol)} → berikutnya: ${fmtDate(r.tgl_kontrol_berikutnya)}
           </div>
         </div>
-      `).join('');
-    }
+        ${r.notif_terkirim
+          ? '<span class="text-xs text-green-600">✓ WA terkirim</span>'
+          : '<span class="text-xs text-slate-400">— belum WA</span>'}
+      </div>
+
+      <div class="text-sm text-slate-600 bg-slate-50 rounded p-2 mb-2 whitespace-pre-wrap">${esc(r.detail_resep)}</div>
+
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-xs text-slate-500">
+          Distributor: <span class="font-medium text-slate-700">${esc(r.distributor)}</span>
+        </div>
+        <div class="flex gap-2">
+          <a href="edit-resep.html?id=${r.id}"
+             class="text-xs bg-yellow-500 hover:bg-yellow-600 text-white font-medium px-3 py-1.5 rounded">
+            ✏️ Edit
+          </a>
+          <button onclick="konfirmasiHapus('${r.id}', '${esc(r.patients?.nama)}')"
+                  class="text-xs bg-red-500 hover:bg-red-600 text-white font-medium px-3 py-1.5 rounded">
+            🗑️ Hapus
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Konfirmasi & eksekusi hapus
+async function konfirmasiHapus(id, nama) {
+  if (!confirm(`Yakin hapus resep milik ${nama}?\n\nData ini akan dihapus permanen beserta notif terkait.`)) return;
+
+  const error = await deletePrescription(id);
+  if (error) {
+    alert('Gagal hapus: ' + error.message);
+    return;
+  }
+  alert('Resep berhasil dihapus ✓');
+  loadAll();
+}
 
     async function loadAll() {
       await Promise.all([loadPatients(), loadHistory()]);
