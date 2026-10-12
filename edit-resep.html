@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit Resep — Notifikasi Pasien CAPD</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+  <div id="nav"></div>
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+
+    <div class="mb-6">
+      <a href="dashboard.html" class="text-sm text-blue-600 hover:underline">← Kembali ke Dashboard</a>
+      <h1 class="text-2xl font-bold text-slate-800 mt-2">Edit Resep</h1>
+      <p class="text-sm text-slate-500">Ubah data resep yang salah input</p>
+    </div>
+
+    <div id="loading" class="text-center text-slate-500 py-8">Memuat data...</div>
+
+    <form id="editForm" class="bg-white rounded-xl shadow-sm p-6 space-y-5 hidden">
+
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-900">
+        ⚠️ <b>Perhatian:</b> Kalau Anda mengubah <b>tgl kontrol berikutnya</b>, sistem akan
+        otomatis reset reminder H-1, H+1, H+3 untuk siklus baru.
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Pasien</label>
+        <input type="text" id="nama_pasien" disabled
+               class="w-full px-3 py-2 border border-slate-200 bg-slate-50 rounded-lg text-slate-600" />
+        <p class="text-xs text-slate-500 mt-1">Pasien tidak bisa diubah. Kalau salah pasien, hapus & input ulang.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Tgl Kontrol (hari pasien datang)</label>
+          <input type="date" id="tgl_kontrol" required
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Tgl Kontrol Berikutnya</label>
+          <input type="date" id="tgl_kontrol_berikutnya" required
+                 class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+          <p class="text-xs text-slate-500 mt-1">Auto +30 hari saat tgl atas berubah</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Detail Resep</label>
+        <textarea id="detail_resep" required rows="5"
+                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Distributor</label>
+        <input type="text" id="distributor" required
+               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Catatan (opsional)</label>
+        <input type="text" id="catatan"
+               class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+      </div>
+
+      <div id="msg" class="hidden text-sm rounded-lg p-3"></div>
+
+      <div class="flex gap-3 pt-2">
+        <a href="dashboard.html"
+           class="flex-1 text-center bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 rounded-lg transition">
+          Batal
+        </a>
+        <button type="submit" id="btnSave"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition">
+          💾 Simpan Perubahan
+        </button>
+      </div>
+    </form>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    let PRESCRIPTION = null;
+    const INTERVAL_HARI = 30;
+
+    function showMsg(text, type = 'info') {
+      const el = document.getElementById('msg');
+      el.className = 'text-sm rounded-lg p-3 ' +
+        (type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700');
+      el.textContent = text;
+      el.classList.remove('hidden');
+    }
+
+    // Auto-hitung tgl berikutnya saat tgl kontrol diubah
+    // (hanya kalau user memang mengubah tgl kontrol)
+    function recalcNext(force = false) {
+      const tgl = document.getElementById('tgl_kontrol').value;
+      if (!tgl) return;
+      const next = new Date(tgl + 'T00:00:00');
+      next.setDate(next.getDate() + INTERVAL_HARI);
+      document.getElementById('tgl_kontrol_berikutnya').value =
+        next.toISOString().slice(0, 10);
+    }
+
+    // Load data resep
+    async function loadData() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+
+      if (!id) {
+        alert('ID resep tidak ditemukan');
+        window.location.href = 'dashboard.html';
+        return;
+      }
+
+      const { data, error } = await sb
+        .from('prescriptions')
+        .select('*, patients(nama, no_rm)')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) {
+        alert('Resep tidak ditemukan');
+        window.location.href = 'dashboard.html';
+        return;
+      }
+
+      PRESCRIPTION = data;
+
+      // Isi form
+      document.getElementById('nama_pasien').value =
+        `${data.patients?.nama} (${data.patients?.no_rm})`;
+      document.getElementById('tgl_kontrol').value = data.tgl_kontrol;
+      document.getElementById('tgl_kontrol_berikutnya').value = data.tgl_kontrol_berikutnya;
+      document.getElementById('detail_resep').value = data.detail_resep;
+      document.getElementById('distributor').value = data.distributor;
+      document.getElementById('catatan').value = data.catatan || '';
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('editForm').classList.remove('hidden');
+    }
+
+    // Submit
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnSave');
+      btn.disabled = true;
+      btn.textContent = 'Menyimpan...';
+
+      const tgl_kontrol = document.getElementById('tgl_kontrol').value;
+      const tgl_kontrol_berikutnya = document.getElementById('tgl_kontrol_berikutnya').value;
+      const detail_resep = document.getElementById('detail_resep').value.trim();
+      const distributor = document.getElementById('distributor').value.trim();
+      const catatan = document.getElementById('catatan').value.trim();
+
+      // Cek apakah tgl kontrol berikutnya berubah
+      const tglBerubah = (tgl_kontrol_berikutnya !== PRESCRIPTION.tgl_kontrol_berikutnya);
+
+      // Update resep
+      const { error } = await sb.from('prescriptions').update({
+        tgl_kontrol,
+        tgl_kontrol_berikutnya,
+        detail_resep,
+        distributor,
+        catatan: catatan || null
+      }).eq('id', PRESCRIPTION.id);
+
+      if (error) {
+        showMsg('Gagal simpan: ' + error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '💾 Simpan Perubahan';
+        return;
+      }
+
+      // Reset reminder kalau tgl berubah
+      if (tglBerubah) {
+        await resetReminderForPrescription(
+          PRESCRIPTION.id,
+          PRESCRIPTION.patient_id,
+          tgl_kontrol_berikutnya
+        );
+        showMsg('✓ Perubahan tersimpan & reminder di-reset untuk tgl baru', 'success');
+      } else {
+        showMsg('✓ Perubahan tersimpan', 'success');
+      }
+
+      setTimeout(() => window.location.href = 'dashboard.html', 1500);
+    });
+
+    // Bind auto +30 hari saat tgl kontrol berubah
+    document.getElementById('tgl_kontrol').addEventListener('change', () => recalcNext(true));
+
+    // Init
+    document.getElementById('nav').innerHTML = renderNav('dashboard.html');
+    loadData();
+  </script>
+</body>
+</html>
